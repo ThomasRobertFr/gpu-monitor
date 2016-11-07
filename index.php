@@ -36,7 +36,7 @@
   <body>
     <div class="container">
         <div class="page-header">
-            <h1>GPU Status <small>(Refreshed every 30 seconds)</small></h1>
+            <h1>GPU Status <small>(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
         </div>
 
 <?php
@@ -72,12 +72,13 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
     foreach(file('data/'.$hostname.'_users.csv') as $user) {
         $user = array_map('trim', str_getcsv(trim($user), " "));
-        $users[$user[0]] = $user[1];
+        $users[$user[0]] = array("user" => $user[1], "time" => join(array_slice($user, 2), " "));
     }
 
     foreach(file('data/'.$hostname.'_processes.csv') as $process) {
         $process = array_combine($GPU_PROC_LIST, array_map('trim', str_getcsv($process)));
-        $process["user"] = $users[$process["pid"]] ? $users[$process["pid"]] : "???";
+        $process["user"] = $users[$process["pid"]] ? $users[$process["pid"]]["user"] : "???";
+        $process["time"] = $users[$process["pid"]] ? $users[$process["pid"]]["time"] : "???";
         $process["usage"] = round($process['used_gpu_memory'] / $gpus[$process["uuid"]]['memory.total'] * 100);
         $gpus[$process["uuid"]]["processes"][$process["pid"]] = $process;
     }
@@ -153,7 +154,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     if ($process["usage"] > 15) $process_status = "info";
                     if ($process["usage"] > 40) $process_status = "primary";
                     ?>
-                    <span class="process label label-<?php echo $process_status ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $process['process_name'] ?> (Mem: <?php echo $process['used_gpu_memory'] ?> Mo)"><?php echo $process["pid"].'@<span class="user">'.$process["user"] ?></span> (<?php echo $process["usage"] ?>%)</span>
+                    <span class="process label label-<?php echo $process_status ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $process['process_name'] ?> (Mem: <?php echo $process['used_gpu_memory'] ?> Mo) / Started: <?php echo $process['time'] ?>"><?php echo $process["pid"].'@<span class="user">'.$process["user"] ?></span> (<?php echo $process["usage"] ?>%)</span>
                 <?php } ?>
             </td>
         </tr>
