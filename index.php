@@ -41,8 +41,8 @@
 
 <?php
 
-$HOSTS = array("kepler" => "Kepler", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country");
-$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "Tesla K20m" => "K20m");
+$HOSTS = array("kepler" => "Kepler", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "drunk" => "Drunk");
+$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "Tesla K20m" => "K20m", "GeForce GTX 980" => "GTX 980");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("uuid", "pid", "process_name", "used_gpu_memory");
 
