@@ -41,10 +41,10 @@
 
 <?php
 
-$HOSTS = array("kepler" => "Kepler", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "drunk" => "Drunk");
-$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "Tesla K20m" => "K20m", "GeForce GTX 980" => "GTX 980");
+$HOSTS = array("pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
+$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "GeForce GTX 980" => "GTX 980");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
-$GPU_PROC_LIST = array("uuid", "pid", "process_name", "used_gpu_memory");
+$GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
 
 foreach ($HOSTS as $hostname => $hosttitle) {
 
@@ -52,7 +52,10 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     $time = false;
 
     foreach(file('data/'.$hostname.'_gpus.csv') as $gpu) {
-        $gpu = array_combine($GPU_COLS_LIST, array_map('trim', str_getcsv($gpu)));
+        $gpu = str_getcsv($gpu);
+        if (count($gpu) != count($GPU_COLS_LIST))
+            continue;
+        $gpu = array_combine($GPU_COLS_LIST, array_map('trim', $gpu));
         $gpu["index"] = (int) $gpu["index"];
         $gpu["memory.used"] = (int) $gpu["memory.used"];
         $gpu["memory.total"] = (int) $gpu["memory.total"];
@@ -64,9 +67,9 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
         $gpus[$gpu["uuid"]] = $gpu;
 
-        if (!$time)
-            $time = $gpu["timestamp"];
+        $time = $gpu["timestamp"]; // save time, keeps the latest
     }
+    uasort($gpus, function($a, $b) { return $a["index"] - $b["index"]; });
 
     $users = array();
 
@@ -75,12 +78,32 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         $users[$user[0]] = array("user" => $user[1], "time" => join(array_slice($user, 2), " "));
     }
 
+    $last_process_time = 0;
     foreach(file('data/'.$hostname.'_processes.csv') as $process) {
-        $process = array_combine($GPU_PROC_LIST, array_map('trim', str_getcsv($process)));
+        $process = str_getcsv($process);
+        if (count($process) != count($GPU_PROC_LIST))
+            continue;
+        $process_time = strtotime($process[0]);
+        if ($last_process_time < $process_time)
+            $last_process_time = $process_time;
+    }
+
+    foreach(file('data/'.$hostname.'_processes.csv') as $process) {
+        $process = str_getcsv($process);
+        if (count($process) != count($GPU_PROC_LIST))
+            continue;
+        $process = array_combine($GPU_PROC_LIST, array_map('trim', $process));
+
+        // 5sec before last info (probably previous loop) or 1min old => exclude
+        $process_time = strtotime($process["timestamp"]);
+        if ($last_process_time - $process_time > 3 || time() - $process_time > 60)
+            continue;
+
+        // get more process info from `ps` data
         $process["user"] = $users[$process["pid"]] ? $users[$process["pid"]]["user"] : "???";
         $process["time"] = $users[$process["pid"]] ? $users[$process["pid"]]["time"] : "???";
-        $process["usage"] = round($process['used_gpu_memory'] / $gpus[$process["uuid"]]['memory.total'] * 100);
-        $gpus[$process["uuid"]]["processes"][$process["pid"]] = $process;
+        $process["usage"] = round($process['used_gpu_memory'] / $gpus[$process["gpu_uuid"]]['memory.total'] * 100);
+        $gpus[$process["gpu_uuid"]]["processes"][$process["pid"]] = $process;
     }
 
     $deltaTSec = (strtotime($time) - time());
