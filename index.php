@@ -103,6 +103,9 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         $process["user"] = $users[$process["pid"]] ? $users[$process["pid"]]["user"] : "???";
         $process["time"] = $users[$process["pid"]] ? $users[$process["pid"]]["time"] : "???";
         $process["usage"] = round($process['used_gpu_memory'] / $gpus[$process["gpu_uuid"]]['memory.total'] * 100);
+        // if the process does not appear in ps and the gpu is not used, the process is probably dead but still appearing here because no running process was added by nvidia-smi
+        if (!$users[$process["pid"]] && $gpus[$process["gpu_uuid"]]['memory.used'] < 10)
+            continue;
         $gpus[$process["gpu_uuid"]]["processes"][$process["pid"]] = $process;
     }
 
