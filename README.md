@@ -23,7 +23,7 @@ Ideally, on the machines you want to monitor, use the following cron jobs:
 # Check if monitoring running each 5 min
 */5 * * * * /SCRIPT-LOCATION/gpu-check.sh HOSTNAME > /dev/null 2>&1
 # Kill and restart the monitoring each 2 hours to cleanup the ouptput files of the monitors
-* */2 * * * /SCRIPT-LOCATION/gpu-check.sh kill > /dev/null 2>&1; /SCRIPT-LOCATION/gpu-check.sh HOSTNAME > /dev/null 2>&1
+0 */2 * * * /SCRIPT-LOCATION/gpu-check.sh kill > /dev/null 2>&1; /SCRIPT-LOCATION/gpu-check.sh HOSTNAME > /dev/null 2>&1
 ```
 
 ### Web interface setup
