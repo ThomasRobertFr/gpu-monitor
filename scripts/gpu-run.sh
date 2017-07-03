@@ -20,3 +20,10 @@ if [ "$1" -eq "3" ]; then
         sleep 10
     done
 fi
+
+if [ "$1" -eq "4" ]; then
+    while true; do
+        echo $(uptime | grep -o -P ': \K[0-9]*[,]?[0-9]*')\;$(nproc) >> $path/${HOST}_cpus.csv
+        sleep 20
+    done
+fi

@@ -45,6 +45,7 @@ $HOSTS = array("pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" 
 $SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "GeForce GTX 980" => "GTX 980");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
+$CPU_COLS_LIST = array("average_use","total_nb_proc");
 
 foreach ($HOSTS as $hostname => $hosttitle) {
 
@@ -109,6 +110,15 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         $gpus[$process["gpu_uuid"]]["processes"][$process["pid"]] = $process;
     }
 
+    $cpuPercent = NAN;
+    $cpuInfo = str_getcsv(file('data/'.$hostname.'_cpus.csv')[0], ";");
+    if (count($cpuInfo) == count($CPU_COLS_LIST)) {
+      $cpuInfo = array_combine($CPU_COLS_LIST, array_map('trim', $cpuInfo));
+      $cpuInfo["average_use"] = (float) str_replace(",", ".", $cpuInfo["average_use"]);
+      $cpuInfo["total_nb_proc"] = (float) str_replace(",", ".", $cpuInfo["total_nb_proc"]);
+      $cpuPercent = $cpuInfo["average_use"] / $cpuInfo["total_nb_proc"] * 100;
+    }
+
     $deltaTSec = (strtotime($time) - time());
     $deltaT = abs($deltaTSec);
     $deltaTUnit = 's';
@@ -127,7 +137,11 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     }
 
     ?>
-    <h2><?php echo $hosttitle; ?> <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?>
+    <h2><?php echo $hosttitle; ?>
+    <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?>
+      <?php if (!is_nan($cpuPercent)) { ?>
+      - CPU: <?php echo round($cpuPercent,2); ?> %
+      <?php } ?>
     <?php
     if ($deltaTSec < -500) { ?>
         <span class="label label-danger"><i class="glyphicon glyphicon-warning-sign"></i> Data is not up to date!</span>
