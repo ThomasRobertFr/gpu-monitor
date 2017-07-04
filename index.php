@@ -111,12 +111,15 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     }
 
     $cpuPercent = NAN;
-    $cpuInfo = str_getcsv(file('data/'.$hostname.'_cpus.csv')[0], ";");
-    if (count($cpuInfo) == count($CPU_COLS_LIST)) {
-      $cpuInfo = array_combine($CPU_COLS_LIST, array_map('trim', $cpuInfo));
-      $cpuInfo["average_use"] = (float) str_replace(",", ".", $cpuInfo["average_use"]);
-      $cpuInfo["total_nb_proc"] = (float) str_replace(",", ".", $cpuInfo["total_nb_proc"]);
-      $cpuPercent = $cpuInfo["average_use"] / $cpuInfo["total_nb_proc"] * 100;
+    foreach(file('data/'.$hostname.'_cpus.csv') as $cpuInfo) {
+        $cpuInfo = str_getcsv($cpuInfo, ";");
+        if (count($cpuInfo) == count($CPU_COLS_LIST)) {
+          $cpuInfo = array_combine($CPU_COLS_LIST, array_map('trim', $cpuInfo));
+          $cpuInfo["average_use"] = (float) str_replace(",", ".", $cpuInfo["average_use"]);
+          $cpuInfo["total_nb_proc"] = (float) str_replace(",", ".", $cpuInfo["total_nb_proc"]);
+          $cpuPercent = $cpuInfo["average_use"] / $cpuInfo["total_nb_proc"] * 100;
+        }
+        break;
     }
 
     $deltaTSec = (strtotime($time) - time());
