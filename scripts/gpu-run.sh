@@ -14,16 +14,10 @@ fi
 if [ "$1" -eq "3" ]; then
     while true; do
         python /home/robert/gpuMonitor/gpu-processes.py $path/processes.csv > $path/${HOST}_users.csv
+        echo $(uptime | grep -o -P ': \K[0-9]*[,]?[0-9]*')\;$(nproc) >> $path/${HOST}_cpus.csv
         tail -n 20 $path/gpus.csv > $path/${HOST}_gpus.csv
         tail -n 40 $path/processes.csv > $path/${HOST}_processes.csv
         scp $path/${HOST}_*.csv $2/web/robert/public_html/gpu/data
         sleep 10
-    done
-fi
-
-if [ "$1" -eq "4" ]; then
-    while true; do
-        echo $(uptime | grep -o -P ': \K[0-9]*[,]?[0-9]*')\;$(nproc) >> $path/${HOST}_cpus.csv
-        sleep 20
     done
 fi
