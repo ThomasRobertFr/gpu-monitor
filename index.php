@@ -18,6 +18,12 @@
     body {padding-bottom: 200px; }
     .process.label { font-size: 80%; font-weight: normal; color: #e3e9ee; }
 
+    .th-machine { width: 198px; }
+    .th-machine h2 { margin: -8px 15px 0 0; display: inline; }
+    .th-machine small { font-size: 90%; color: #777; font-weight: 400; }
+    .title-table th { border-top-width: 3px !important; }
+    .title-table { margin-top: 40px; }
+
     .th-id { width: 18px; }
     .th-name { width: 180px; }
     .th-mem { width: 130px; }
@@ -31,18 +37,22 @@
 
     h1 small, h2 small { font-size: 50%; }
     h2 small .label-danger { font-size: 80%; }
+
+    .btn-process { font-size: 10px; padding: 1px 3px 0px; vertical-align: top; }
+    .popover-content { padding: 1px 5px 4px; }
     </style>
   </head>
   <body>
     <div class="container">
         <div class="page-header">
-            <h1>GPU Status <small>(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
+            <h1>GPU Status <small class="hidden-xs">(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
         </div>
 
 <?php
 
-$HOSTS = array("pascal" => "Pascal", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
-$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980");
+$HOSTS = array("fb" => "Facebook", "pascal" => "Pascal", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
+$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100");
+$SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
 $CPU_COLS_LIST = array("average_use","total_nb_proc");
@@ -110,17 +120,25 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         $gpus[$process["gpu_uuid"]]["processes"][$process["pid"]] = $process;
     }
 
-    $cpuPercent = NAN;
-    foreach(file('data/'.$hostname.'_cpus.csv') as $cpuInfo) {
-        $cpuInfo = str_getcsv($cpuInfo, ";");
-        if (count($cpuInfo) == count($CPU_COLS_LIST)) {
-          $cpuInfo = array_combine($CPU_COLS_LIST, array_map('trim', $cpuInfo));
-          $cpuInfo["average_use"] = (float) str_replace(",", ".", $cpuInfo["average_use"]);
-          $cpuInfo["total_nb_proc"] = (float) str_replace(",", ".", $cpuInfo["total_nb_proc"]);
-          $cpuPercent = $cpuInfo["average_use"] / $cpuInfo["total_nb_proc"] * 100;
-        }
-        break;
+    $f = fopen('data/'.$hostname.'_status.csv', "r");
+    $diskRaw = fgets($f);
+    if (substr($diskRaw, 0, 3) != "Mem") {
+        preg_match("#^[^ ]+ +([^ ]+) +([^ ]+)#", $diskRaw, $diskRaw);
+        $disk = array("total" => round($diskRaw[1]/1024/1024, -1), "used" => round($diskRaw[2]/1024/1024, -1), "usage" => round($diskRaw[2] / $diskRaw[1] * 100));
+
+        $ramRaw = fgets($f);
     }
+    else {
+        $disk = array("total" => 0, "used" => 0, "usage" => 0);
+    }
+    preg_match("#^[^ ]+ +([^ ]+) +([^ ]+)#", $ramRaw, $ramRaw);
+    $ram = array("total" => round($ramRaw[1] / 1024), "used" => round($ramRaw[2] / 1024), "usage" => round($ramRaw[2] / $ramRaw[1] * 100));
+
+    $cpuRaw = fgets($f);
+    preg_match("#[ ,]([0-9,.]+) id#", $cpuRaw, $cpuRaw);
+    $cpu = 100 - round((float)str_replace(",",".", $cpuRaw[1]));
+
+    fclose($f);
 
     $deltaTSec = (strtotime($time) - time());
     $deltaT = abs($deltaTSec);
@@ -140,16 +158,63 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     }
 
     ?>
-    <h2><?php echo $hosttitle; ?>
-    <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?>
-      <?php if (!is_nan($cpuPercent)) { ?>
-      - CPU: <?php echo round($cpuPercent,2); ?> %
-      <?php } ?>
-    <?php
-    if ($deltaTSec < -500) { ?>
-        <span class="label label-danger"><i class="glyphicon glyphicon-warning-sign"></i> Data is not up to date!</span>
-    <?php } ?>
-    </small></h2>
+
+    <table class="table table-condensed title-table">
+        <?php
+        if ($deltaTSec < -500) { ?>
+            <tr><td colspan="5" style="border-top: 0"><span class="label label-danger"><i class="glyphicon glyphicon-warning-sign"></i> Data is not up to date for the server below</span></td></tr>
+        <?php } ?>
+        <tr>
+            <th class="th-machine" rowspan="2"><h2><?php echo $hosttitle; ?></h2><br>
+            <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?></small></th>
+            <th class="th-mem">CPU</th>
+            <th class="th-mem">RAM</th>
+            <th class="th-mem">SSD</th>
+            <th></th>
+        </tr>
+        <tr>
+            <td>
+                <?php
+                $bar_status = "success";
+                if ($cpu > 35) $bar_status = "warning";
+                if ($cpu > 70) $bar_status = "danger";
+                ?>
+                <div class="progress progress-<?php echo $bar_status ?>">
+                    <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $cpu ?>%">
+                        <?php echo $cpu ?>%
+                    </div>
+                </div>
+            </td>
+            <td>
+                <?php
+                $bar_status = "success";
+                if ($ram["usage"] > 35) $bar_status = "warning";
+                if ($ram["usage"] > 70) $bar_status = "danger";
+                ?>
+                <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="<?php printf("%d/%d Go", $ram['used'], $ram['total']); ?>">
+                    <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $ram["usage"] ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $ram["usage"] ?>%">
+                        <?php echo $ram["usage"] ?>%
+                    </div>
+                </div>
+            </td>
+            <td>
+                <?php
+                $bar_status = "success";
+                if ($disk["usage"] > 35) $bar_status = "warning";
+                if ($disk["usage"] > 70) $bar_status = "danger";
+                ?>
+                <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="<?php printf("%d/%d Go", $disk['used'], $disk['total']); ?>">
+                    <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $disk["usage"] ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $disk["usage"] ?>%">
+                        <?php echo $disk["usage"] ?>%
+                    </div>
+                </div>
+            </td>
+            <td></td>
+        </tr>
+    </table>
+
+
+
 
     <table class="table table-striped table-condensed">
         <tr>
@@ -157,13 +222,14 @@ foreach ($HOSTS as $hostname => $hosttitle) {
             <th class="th-name">Name</th>
             <th class="th-mem">Memory</th>
             <th class="th-usage">GPU</th>
-            <th class="th-processes">Processes <span class="label label-default">pid@user (RAM)</span></th>
+            <th class="th-processes"><span class="hidden-xs">Processes <span class="label label-default">pid@user (RAM)</span></span></th>
         </tr>
     <?php foreach ($gpus as $gpu) { ?>
         <tr>
             <td><?php echo $gpu['index']; ?></td>
             <td>
-                <?php echo $SHORT_GPU_NAMES[$gpu['name']] ? '<span data-toggle="tooltip" title="'.$gpu['name'].'">'.$SHORT_GPU_NAMES[$gpu['name']].'</span>' : $gpu['name']; ?>
+                <span class="hidden-xs"><?php echo $SHORT_GPU_NAMES[$gpu['name']] ? '<span data-toggle="tooltip" title="'.$gpu['name'].'">'.$SHORT_GPU_NAMES[$gpu['name']].'</span>' : $gpu['name']; ?></span>
+                <span class="visible-xs-inline"><?php echo $SHORTER_GPU_NAMES[$gpu['name']] ? '<span data-toggle="tooltip" title="'.$gpu['name'].'">'.$SHORTER_GPU_NAMES[$gpu['name']].'</span>' : $gpu['name']; ?></span>
                 (<?php echo round($gpu['memory.total'] / 1000) ?> Go)
             </td>
             <td>
@@ -191,6 +257,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                 </div>
             </td>
             <td>
+                <span class="hidden-xs process-content">
                 <?php foreach ($gpu["processes"] as $process) { ?>
                     <?php
                     $process_status = "default";
@@ -199,6 +266,10 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     ?>
                     <span class="process label label-<?php echo $process_status ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $process['process_name'] ?> (Mem: <?php echo $process['used_gpu_memory'] ?> Mo) / Started: <?php echo $process['time'] ?>"><?php echo $process["pid"].'@<span class="user">'.$process["user"] ?></span> (<?php echo $process["usage"] ?>%)</span>
                 <?php } ?>
+                </span>
+                <span class="visible-xs-inline">
+                    <a type="button" tabindex="0" role="button" class="btn btn-default btn-xs btn-process"><i class="glyphicon glyphicon-triangle-bottom"></i></a>
+                </div>
             </td>
         </tr>
     <?php } ?>
@@ -214,6 +285,20 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     <script type="text/javascript">
     $(function () {
         $('[data-toggle="tooltip"]').tooltip();
+
+        $('.btn-process').popover({
+            placement: 'top',
+            container: 'body',
+            html: true,
+            //selector: '[rel="popover"]', //Sepcify the selector here
+            content: function () {
+                var data = $(this).parent().parent().find(".process-content").html();
+                if (data.trim() == "") data = "<small>No&nbsp;process</small>"
+                return data;
+            },
+            trigger: "focus"
+        });
+
     })
     </script>
   </body>
