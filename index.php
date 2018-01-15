@@ -50,7 +50,7 @@
 
 <?php
 
-$HOSTS = array("fb" => "Facebook", "pascal" => "Pascal", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
+$HOSTS = array("fb" => "Facebook", "pascal" => "Pascal", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country"); // , "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
 $SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100");
 $SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
@@ -134,9 +134,15 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     preg_match("#^[^ ]+ +([^ ]+) +([^ ]+)#", $ramRaw, $ramRaw);
     $ram = array("total" => round($ramRaw[1] / 1024), "used" => round($ramRaw[2] / 1024), "usage" => round($ramRaw[2] / $ramRaw[1] * 100));
 
-    $cpuRaw = fgets($f);
-    preg_match("#[ ,]([0-9,.]+) id#", $cpuRaw, $cpuRaw);
-    $cpu = 100 - round((float)str_replace(",",".", $cpuRaw[1]));
+    //// based on top
+    //$cpuRaw = fgets($f);
+    //preg_match("#[ ,]([0-9,.]+) id#", $cpuRaw, $cpuRaw);
+    //$cpu = 100 - round((float)str_replace(",",".", $cpuRaw[1]));
+
+    $nbCpu = (int) fgets($f);
+    $uptime = fgets($f);
+    preg_match("#load average: ([0-9\,]+), #", $uptime, $uptime);
+    $cpu = round((float)str_replace(",",".", $uptime[1]) / $nbCpu * 100);
 
     fclose($f);
 
@@ -179,7 +185,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                 if ($cpu > 35) $bar_status = "warning";
                 if ($cpu > 70) $bar_status = "danger";
                 ?>
-                <div class="progress progress-<?php echo $bar_status ?>">
+                <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="A score > 100% means processes are waiting">
                     <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $cpu ?>%">
                         <?php echo $cpu ?>%
                     </div>

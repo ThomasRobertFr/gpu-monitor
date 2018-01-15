@@ -13,9 +13,11 @@ fi
 
 if [ "$1" -eq "3" ]; then
     while true; do
-        df | grep " /local$" > $path/${HOST}_status.csv
+        df -l | grep " /local$" > $path/${HOST}_status.csv
         free -m | grep "Mem" >> $path/${HOST}_status.csv
-        top -b -n 1 | grep %Cpu >> $path/${HOST}_status.csv
+        #top -b -n 1 | grep %Cpu >> $path/${HOST}_status.csv
+        nproc --all >> $path/${HOST}_status.csv
+        uptime >> $path/${HOST}_status.csv
 
         python /home/robert/gpuMonitor/gpu-processes.py $path/processes.csv > $path/${HOST}_users.csv
         echo $(uptime | grep -o -P ': \K[0-9]*[,]?[0-9]*')\;$(nproc) > $path/${HOST}_cpus.csv
