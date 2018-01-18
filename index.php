@@ -83,11 +83,19 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     uasort($gpus, function($a, $b) { return $a["index"] - $b["index"]; });
 
     $users = array();
+    $users_childs = array();
 
+    $first = true;
     foreach(file('data/'.$hostname.'_users.csv') as $user) {
+        if ($first) {
+            $users_childs = json_decode($user, true);
+            $first = false;
+            continue;
+        }
         $user = array_map('trim', str_getcsv(trim($user), " "));
         $users[$user[0]] = array("user" => $user[1], "time" => join(array_slice($user, 2), " "));
     }
+
 
     $last_process_time = 0;
     foreach(file('data/'.$hostname.'_processes.csv') as $process) {
@@ -111,8 +119,17 @@ foreach ($HOSTS as $hostname => $hosttitle) {
             continue;
 
         // get more process info from `ps` data
-        $process["user"] = $users[$process["pid"]] ? $users[$process["pid"]]["user"] : "???";
-        $process["time"] = $users[$process["pid"]] ? $users[$process["pid"]]["time"] : "???";
+        $process["user"] = "???"; $process["time"] = "???"; $process["alert"] = "This process is probably dead";
+        if (isset($users[$process["pid"]])) {
+            $process["user"] = $users[$process["pid"]]["user"];
+            $process["time"] = $users[$process["pid"]]["time"];
+            $process["alert"] = false;
+        }
+        elseif (isset($users_childs[$process["pid"]][0]) && isset($users[$users_childs[$process["pid"]][0]])) {
+            $process["user"] = $users[$users_childs[$process["pid"]][0]]["user"];
+            $process["time"] = $users[$users_childs[$process["pid"]][0]]["time"];
+            $process["alert"] .= ". Kill childs PIDs: ".implode($users_childs[$process["pid"]], ", ");
+        }
         $process["usage"] = round($process['used_gpu_memory'] / $gpus[$process["gpu_uuid"]]['memory.total'] * 100);
         // if the process does not appear in ps and the gpu is not used, the process is probably dead but still appearing here because no running process was added by nvidia-smi
         if (!$users[$process["pid"]] && $gpus[$process["gpu_uuid"]]['memory.used'] < 10)
@@ -173,24 +190,12 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         <tr>
             <th class="th-machine" rowspan="2"><h2><?php echo $hosttitle; ?></h2><br>
             <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?></small></th>
-            <th class="th-mem">CPU</th>
             <th class="th-mem">RAM</th>
+            <th class="th-mem">CPU</th>
             <th class="th-mem">SSD</th>
             <th></th>
         </tr>
         <tr>
-            <td>
-                <?php
-                $bar_status = "success";
-                if ($cpu > 35) $bar_status = "warning";
-                if ($cpu > 70) $bar_status = "danger";
-                ?>
-                <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="A score > 100% means processes are waiting">
-                    <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $cpu ?>%">
-                        <?php echo $cpu ?>%
-                    </div>
-                </div>
-            </td>
             <td>
                 <?php
                 $bar_status = "success";
@@ -203,6 +208,18 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     </div>
                 </div>
             </td>
+                <td>
+                    <?php
+                    $bar_status = "success";
+                    if ($cpu > 35) $bar_status = "warning";
+                    if ($cpu > 70) $bar_status = "danger";
+                    ?>
+                    <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="A score > 100% means processes are waiting">
+                        <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $cpu ?>%">
+                            <?php echo $cpu ?>%
+                        </div>
+                    </div>
+                </td>
             <td>
                 <?php
                 $bar_status = "success";
@@ -269,8 +286,9 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     $process_status = "default";
                     if ($process["usage"] > 15) $process_status = "info";
                     if ($process["usage"] > 40) $process_status = "primary";
+                    if ($process["alert"] !== false) $process_status = "danger";
                     ?>
-                    <span class="process label label-<?php echo $process_status ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $process['process_name'] ?> (Mem: <?php echo $process['used_gpu_memory'] ?> Mo) / Started: <?php echo $process['time'] ?>"><?php echo $process["pid"].'@<span class="user">'.$process["user"] ?></span> (<?php echo $process["usage"] ?>%)</span>
+                    <span class="process label label-<?php echo $process_status ?>" data-toggle="tooltip" data-placement="top" title="<?php if ($process["alert"]) echo $process["alert"]; ?> <?php echo $process['process_name'] ?> (Mem: <?php echo $process['used_gpu_memory'] ?> Mo) / Started: <?php echo $process['time'] ?>"><?php echo $process["pid"].'@<span class="user">'.$process["user"] ?></span> (<?php echo $process["usage"] ?>%)</span>
                 <?php } ?>
                 </span>
                 <span class="visible-xs-inline">
