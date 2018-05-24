@@ -1,3 +1,5 @@
+<?php if (!isset($_GET["content"])) { ?>
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -7,7 +9,9 @@
 
     <title>GPU Status</title>
 
-    <meta http-equiv="refresh" content="30">
+    <!--<meta http-equiv="refresh" content="30">-->
+
+    <script defer src="https://pro.fontawesome.com/releases/v5.0.11/js/all.js" integrity="sha384-rAGYBPVpurUH2YLc/Skiv4TE1iQ/wAocPQdQT73UR0LEZ3Os2E3wGBn9fRISQJIK" crossorigin="anonymous"></script>
 
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <!--[if lt IE 9]>
@@ -28,12 +32,22 @@
     .th-name { width: 180px; }
     .th-mem { width: 130px; }
     .th-usage { width: 130px; }
+    .th-comment { width: 160px; }
+    .td-comment { white-space: nowrap; padding-right:30px!important;}
 
     td .progress { margin: 0; }
     td .progress.progress-success { background-color: #deedde; }
     td .progress.progress-warning { background-color: #f8eed3; }
     td .progress.progress-danger { background-color: #f3dedd; }
     .process .user { font-weight: bold; color: #fff; }
+
+    .comment-btn { float:right; background: #ccc; border: #999; margin-right: -25px; }
+    .comment-form { font-size: 80%; padding-top: 5px; }
+    .comment-form .input-group-addon { padding: 4px 6px;  }
+    .comment-form .form-control { padding: 5px; height: 27px; }
+    .comment-form .form-group { margin-bottom: 9px; }
+
+    .label-comment.label-danger { background-color: #2f4c79; }
 
     h1 small, h2 small { font-size: 50%; }
     h2 small .label-danger { font-size: 80%; }
@@ -44,18 +58,53 @@
   </head>
   <body>
     <div class="container">
+
+<?php } ?>
+
         <div class="page-header">
             <h1>GPU Status <small class="hidden-xs">(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
         </div>
 
 <?php
 
-$HOSTS = array("fb" => "Facebook", "pascal" => "Pascal", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country"); // , "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
+$HOSTS = array("fb" => "Facebook",  "pascal" => "Pascal", "chic" => "Chic <small style=\"font-size: 40%\">(CUDA 9)</small>", "nile" => "Nile", "rodgers" => "Rodgers", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country"); // , "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
 $SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100");
 $SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
 $CPU_COLS_LIST = array("average_use","total_nb_proc");
+
+if (is_file("data/comments.json"))
+    $COMMENTS = json_decode(file_get_contents("data/comments.json"), true);
+else
+    $COMMENTS = array();
+
+if (isset($_POST["host"]) && isset($HOSTS[$_POST["host"]])) {
+    try {
+        if (isset($_POST["reset"])) throw new Exception("reset");
+        $name = preg_replace('/[^\p{L}\p{N}-_.,+\/#&]/u', " ", $_POST["name"]);
+        $comment = preg_replace('/[^\p{L}\p{N}-_.,+\/#&]/u', " ", $_POST["comment"]);
+        if (preg_match('/^ *(([0-9]+)d)? ?(([0-9]+)h)? *$/i', $_POST["date"], $matches)) {
+            $interv = new DateInterval("P".($matches[2] ? $matches[2] : 0)."DT".(isset($matches[4]) ? $matches[4] : 0)."H");
+            $date = new DateTime();
+            $date->add($interv);
+        }
+        else {
+            $date = new DateTime($_POST["date"]);
+        }
+        $date = $date->format("Y-m-d H:i");
+    }
+    catch (Exception $e) {
+        $name = "";
+        $date = "";
+        $comment = "";
+    }
+    $index = (((int) $_POST["id"]) + 20) % 20; // limit btwn 0 and 19
+
+    $COMMENTS[$_POST["host"]][$index] = array("name" => $name, "date" => $date, "comment" => $comment);
+
+    file_put_contents("data/comments.json", json_encode($COMMENTS));
+}
 
 foreach ($HOSTS as $hostname => $hosttitle) {
 
@@ -236,15 +285,13 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         </tr>
     </table>
 
-
-
-
     <table class="table table-striped table-condensed">
         <tr>
             <th class="th-id">#</th>
             <th class="th-name">Name</th>
             <th class="th-mem">Memory</th>
             <th class="th-usage">GPU</th>
+            <th class="th-comment">Reservation</th>
             <th class="th-processes"><span class="hidden-xs">Processes <span class="label label-default">pid@user (RAM)</span></span></th>
         </tr>
     <?php foreach ($gpus as $gpu) { ?>
@@ -279,6 +326,33 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     </div>
                 </div>
             </td>
+
+            <?php
+            try {
+                $comment = $COMMENTS[$hostname][$gpu['index']];
+
+                $date = date_create($comment["date"]);
+                $now = date_create();
+                if ($date > $now)
+                    $now->sub(new DateInterval("PT1H")); // remove 1h from now to round up diff to ceil instead of floor
+                $diff = date_diff($now, $date);
+                if ($diff->days >= 1)
+                    $diff_disp = $diff->format("%ad");
+                else
+                    $diff_disp = $diff->format("%hh");
+
+                if ($date < $now && $diff->days > 2)
+                    throw new Exception("remove, too old");
+            }
+            catch (Exception $e) { $comment = array("date" => "", "name" => ""); }
+            ?>
+
+            <td class="td-comment" data-name="<?php echo $comment["name"] ?>" data-comment="<?php echo $comment["comment"] ?>" data-date="<?php echo $comment["date"] ?>" data-host="<?php echo $hostname ?>" data-id="<?php echo $gpu['index'] ?>">
+                <button class="btn btn-default btn-xs comment-btn"><i class="fas fa-pencil"></i></button>
+                <?php if ($comment["date"] && $comment["name"]) { ?>
+                    <span class="label label-comment label-<?php echo ($date > $now) ? "danger" : "default"; ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $comment["comment"]; ?>"><?php echo $comment["name"].' ('.$diff_disp.($date > $now ? "" : " ago").')'; if ($comment["comment"]) echo '&nbsp;&nbsp;<i class="fas fa-comment"></i>'; ?></span>
+                <?php } ?>
+            </td>
             <td>
                 <span class="hidden-xs process-content">
                 <?php foreach ($gpu["processes"] as $process) { ?>
@@ -303,11 +377,42 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
 ?>
 
+    <div id="popover-content" style="display:none">
+        <form class="comment-form" method="POST" url="?">
+            <input type="hidden" name="id" class="form-id">
+            <input type="hidden" name="host" class="form-host">
+            <div class="form-group">
+                <div class="input-group">
+                    <div class="input-group-addon"><i class="fas fa-user"></i></div>
+                    <input type="text" name="name" class="form-name form-control" placeholder="Name">
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    <div class="input-group-addon"><i class="fas fa-calendar-alt"></i></div>
+                    <input type="text" name="date" class="form-date form-control" placeholder="Date">
+                </div>
+                <small>Format: date (YYYY-MM-DD HH:MM) or duration (<i>x</i>d <i>y</i>h)</small>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    <div class="input-group-addon"><i class="fas fa-comment"></i></div>
+                    <input type="text" name="comment" class="form-comment form-control" placeholder="Comment (optional)">
+                </div>
+            </div>
+            <button type="submit" name="save" class="btn btn-success btn-sm">Save</button>
+            <button type="submit" name="reset" class="btn btn-danger btn-sm">Remove</button>
+        </form>
     </div>
+
+    <?php if (!isset($_GET["content"])) { ?>
+
+    </div>
+
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="js/bootstrap.min.js"></script>
     <script type="text/javascript">
-    $(function () {
+    function preparePage () {
         $('[data-toggle="tooltip"]').tooltip();
 
         $('.btn-process').popover({
@@ -323,7 +428,36 @@ foreach ($HOSTS as $hostname => $hosttitle) {
             trigger: "focus"
         });
 
-    })
+        $('.comment-btn').popover({
+            html : true,
+            container: 'body',
+            placement: 'top',
+            title: "",
+            //trigger: "focus",
+            content: function() {
+                var td = $(this).parent();
+                $(".form-name").attr("value", td.data("name"));
+                $(".form-date").attr("value", td.data("date"));
+                $(".form-comment").attr("value", td.data("comment"));
+                $(".form-id").attr("value", td.data("id"));
+                $(".form-host").attr("value", td.data("host"));
+                return $("#popover-content").html();
+            }
+        });
+    }
+
+    $(preparePage)
+
+    window.setInterval(function() {
+        if ($('div.popover').length == 0) {
+            $.get("?content", {}, function (data) {
+                $('.container').html(data);
+                preparePage();
+            })
+        }
+    }, 30000);
     </script>
   </body>
 </html>
+
+<?php } ?>
