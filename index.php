@@ -11,7 +11,7 @@
 
     <!--<meta http-equiv="refresh" content="30">-->
 
-    <script defer src="https://pro.fontawesome.com/releases/v5.0.11/js/all.js" integrity="sha384-rAGYBPVpurUH2YLc/Skiv4TE1iQ/wAocPQdQT73UR0LEZ3Os2E3wGBn9fRISQJIK" crossorigin="anonymous"></script>
+    <script defer src="https://pro.fontawesome.com/releases/v5.7.2/js/all.js" integrity="sha384-I3Hhe9TkmlsxzooTtbRzdeLbmkFQE9DVzX/19uTZfHk1zn/uWUyk+a+GyrHyseSq" crossorigin="anonymous"></script>
 
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <!--[if lt IE 9]>
@@ -84,6 +84,7 @@ class Stats {
         if ($user == "yifu") $user = "chenyi";
         if ($user == "clara") $user = "gainond";
         if ($user == "yin") $user = "yiny";
+        if ($user == "valenti") $user = "guiguet";
         if ($user == "???" || $user == "en pann") return;
         if (!isset($this->data[$user]))
             $this->data[$user] = array("resa" => 0, "used" => 0);
@@ -184,7 +185,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
         // 5sec before last info (probably previous loop) or 1min old => exclude
         $process_time = strtotime($process["timestamp"]);
-        if ($last_process_time - $process_time > 3 || time() - $process_time > 60)
+        if ($last_process_time - $process_time > 5 || time() - $process_time > 60)
             continue;
 
         // get more process info from `ps` data
@@ -415,8 +416,10 @@ $STATS_EMA = json_decode(file_get_contents("data/stats.json"), true);
 $deltaT_ema = time() - $STATS_EMA["time"];
 $T_ema = 2*60*60;
 $T2_ema = 24*60*60;
+$T3_ema = 7*24*60*60;
 $alpha = 1 - exp(-$deltaT_ema/$T_ema);
 $alpha2 = 1 - exp(-$deltaT_ema/$T2_ema);
+$alpha3 = 1 - exp(-$deltaT_ema/$T3_ema);
 
 // update EMA if at least 30s since last update
 if ($deltaT_ema > 30) {
@@ -430,6 +433,11 @@ if ($deltaT_ema > 30) {
             $STATS_EMA["data2"][$user] = $usage["used"];
         else
             $STATS_EMA["data2"][$user] += $alpha2 * ($usage["used"] - $STATS_EMA["data2"][$user]);
+
+        if (!isset($STATS_EMA["data3"][$user]))
+            $STATS_EMA["data3"][$user] = $usage["used"];
+        else
+            $STATS_EMA["data3"][$user] += $alpha3 * ($usage["used"] - $STATS_EMA["data3"][$user]);
     }
 
     $STATS_EMA["time"] = time();
@@ -439,7 +447,11 @@ if ($deltaT_ema > 30) {
 ?>
 <h2>Current usage statistics <small>a.k.a. who to ask for GPUs</small></h2>
 <table class="table table-striped table-condensed" style="width: auto; margin: 0; text-align: center">
-    <tr><th>User</th><th>Reserved</th><th>Used</th><th><abbr title="Exponential Moving Average, period 2h">EMA 2h</abbr></th><th><abbr title="Exponential Moving Average, period 24h">EMA 24h</abbr></th></tr>
+    <tr><th>User</th><th>Reserved</th><th>Used</th>
+    <th><abbr title="Exponential Moving Average, period 2h">EMA 2h</abbr></th>
+    <th><abbr title="Exponential Moving Average, period 24h">EMA 24h</abbr></th>
+    <th><abbr title="Exponential Moving Average, period 1 week">EMA 1w</abbr></th>
+    </tr>
 <?php
 function sort_order ($b, $a) {
     return $a["resa"] + $a["used"]*1.5 - $b["resa"] - $b["used"]*1.5;
@@ -455,8 +467,13 @@ foreach ($STATS->data as $user => $usage) {
     <td><?php echo $user; ?></td>
     <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
     <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
-    <td class="<?php echo get_color($STATS_EMA["data"][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA["data"][$user]); ?></td>
-    <td class="<?php echo get_color($STATS_EMA["data2"][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA["data2"][$user]); ?></td>
+    <?php foreach (array("data", "data2", "data3") as $key) { ?>
+    <td class="text-right <?php echo get_color($STATS_EMA[$key][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA[$key][$user]); ?>
+    <?php if ($STATS_EMA[$key][$user] > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
+          elseif ($STATS_EMA[$key][$user] < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
+          else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
+    </td>
+    <?php } ?>
     </tr>
     <?php
 }
