@@ -24,6 +24,7 @@
 
     .th-machine { width: 198px; }
     .th-machine h2 { margin: -8px 15px 0 0; display: inline; }
+    .th-machine h2 a, .th-machine h2 a:hover { color: #333; text-decoration: none; }
     .th-machine small { font-size: 90%; color: #777; font-weight: 400; }
     .title-table th { border-top-width: 3px !important; }
     .title-table { margin-top: 40px; }
@@ -67,12 +68,31 @@
 
 <?php
 
-$HOSTS = array("fb" => "Facebook",  "pascal" => "Pascal", "chic" => "Chic <small style=\"font-size: 40%\">(CUDA 9)</small>", "nile" => "Nile", "rodgers" => "Rodgers", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country"); // , "kepler" => "Kepler", "tesla" => "Tesla", "drunk" => "Drunk");
-$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100");
+$HOSTS = array("fb" => "Facebook",  "pascal" => "Pascal", "chic" => "Chic", "nile" => "Nile", "rodgers" => "Rodgers", "bernard" => "Bernard", "edwards" => "Edwards", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "sledge" => "Sledge", "sister" => "Sister");
+$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100", "GeForce RTX 2080 Ti" => "2080 Ti");
 $SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
 $CPU_COLS_LIST = array("average_use","total_nb_proc");
+
+
+class Stats {
+    public $data = array();
+    function add($user, $type) {
+        $user = strtolower(substr($user, 0, 7));
+        if ($user == "perrine") $user = "cribier";
+        if ($user == "yifu") $user = "chenyi";
+        if ($user == "clara") $user = "gainond";
+        if ($user == "yin") $user = "yiny";
+        if ($user == "???" || $user == "en pann") return;
+        if (!isset($this->data[$user]))
+            $this->data[$user] = array("resa" => 0, "used" => 0);
+        $this->data[$user][$type] += 1;
+    }
+}
+
+$STATS = new Stats();
+
 
 if (is_file("data/comments.json"))
     $COMMENTS = json_decode(file_get_contents("data/comments.json"), true);
@@ -231,13 +251,13 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
     ?>
 
-    <table class="table table-condensed title-table">
+    <table id="<?php echo $hostname ?>" class="table table-condensed title-table">
         <?php
         if ($deltaTSec < -500) { ?>
             <tr><td colspan="5" style="border-top: 0"><span class="label label-danger"><i class="glyphicon glyphicon-warning-sign"></i> Data is not up to date for the server below</span></td></tr>
         <?php } ?>
         <tr>
-            <th class="th-machine" rowspan="2"><h2><?php echo $hosttitle; ?></h2><br>
+            <th class="th-machine" rowspan="2"><h2><a href="#<?php echo $hostname ?>"><?php echo $hosttitle; ?></a></h2><br>
             <small>@ <?php echo round($deltaT).$deltaTUnit.$deltaTDirection ?></small></th>
             <th class="th-mem">RAM</th>
             <th class="th-mem">CPU</th>
@@ -264,7 +284,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     if ($cpu > 70) $bar_status = "danger";
                     ?>
                     <div class="progress progress-<?php echo $bar_status ?>" data-toggle="tooltip" data-placement="top" title="A score > 100% means processes are waiting">
-                        <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo $cpu ?>%">
+                        <div class="progress-bar progress-bar-<?php echo $bar_status ?>" role="progressbar" aria-valuenow="<?php echo $cpu ?>" aria-valuemin="0" aria-valuemax="100" style="width: <?php echo min(100,$cpu) ?>%">
                             <?php echo $cpu ?>%
                         </div>
                     </div>
@@ -345,6 +365,10 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                     throw new Exception("remove, too old");
             }
             catch (Exception $e) { $comment = array("date" => "", "name" => ""); }
+
+            if (!empty($comment["name"])) {
+                $STATS->add($comment["name"], "resa");
+            }
             ?>
 
             <td class="td-comment" data-name="<?php echo $comment["name"] ?>" data-comment="<?php echo $comment["comment"] ?>" data-date="<?php echo $comment["date"] ?>" data-host="<?php echo $hostname ?>" data-id="<?php echo $gpu['index'] ?>">
@@ -373,9 +397,72 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     <?php } ?>
     </table>
     <?php
+
+    foreach ($gpus as $gpu) {
+        // list users on the GPU, count them once, add them to the stats counter
+        $users = array();
+        foreach ($gpu["processes"] as $process)
+            $users[] = $process["user"];
+        $users = array_unique($users);
+        foreach($users as $user)
+            $STATS->add($user, "used");
+    }
+}
+
+
+// load previous data
+$STATS_EMA = json_decode(file_get_contents("data/stats.json"), true);
+$deltaT_ema = time() - $STATS_EMA["time"];
+$T_ema = 2*60*60;
+$T2_ema = 24*60*60;
+$alpha = 1 - exp(-$deltaT_ema/$T_ema);
+$alpha2 = 1 - exp(-$deltaT_ema/$T2_ema);
+
+// update EMA if at least 30s since last update
+if ($deltaT_ema > 30) {
+    foreach ($STATS->data as $user => $usage) {
+        if (!isset($STATS_EMA["data"][$user]))
+            $STATS_EMA["data"][$user] = $usage["used"];
+        else
+            $STATS_EMA["data"][$user] += $alpha * ($usage["used"] - $STATS_EMA["data"][$user]);
+
+        if (!isset($STATS_EMA["data2"][$user]))
+            $STATS_EMA["data2"][$user] = $usage["used"];
+        else
+            $STATS_EMA["data2"][$user] += $alpha2 * ($usage["used"] - $STATS_EMA["data2"][$user]);
+    }
+
+    $STATS_EMA["time"] = time();
+    file_put_contents("data/stats.json", json_encode($STATS_EMA));
 }
 
 ?>
+<h2>Current usage statistics <small>a.k.a. who to ask for GPUs</small></h2>
+<table class="table table-striped table-condensed" style="width: auto; margin: 0; text-align: center">
+    <tr><th>User</th><th>Reserved</th><th>Used</th><th><abbr title="Exponential Moving Average, period 2h">EMA 2h</abbr></th><th><abbr title="Exponential Moving Average, period 24h">EMA 24h</abbr></th></tr>
+<?php
+function sort_order ($b, $a) {
+    return $a["resa"] + $a["used"]*1.5 - $b["resa"] - $b["used"]*1.5;
+}
+uasort($STATS->data, "sort_order");
+function get_color($value) {
+    if ($value <= 2.01) return "success";
+    if ($value <= 5.01) return "warning";
+    return "danger";
+}
+foreach ($STATS->data as $user => $usage) {
+    ?><tr>
+    <td><?php echo $user; ?></td>
+    <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
+    <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
+    <td class="<?php echo get_color($STATS_EMA["data"][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA["data"][$user]); ?></td>
+    <td class="<?php echo get_color($STATS_EMA["data2"][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA["data2"][$user]); ?></td>
+    </tr>
+    <?php
+}
+
+?>
+</table>
 
     <div id="popover-content" style="display:none">
         <form class="comment-form" method="POST" url="?">
@@ -446,12 +533,12 @@ foreach ($HOSTS as $hostname => $hosttitle) {
         });
     }
 
-    $(preparePage)
+    $(preparePage);
 
     window.setInterval(function() {
         if ($('div.popover').length == 0) {
             $.get("?content", {}, function (data) {
-                $('.container').html(data);
+                $('.container').empty().html(data);
                 preparePage();
             })
         }
