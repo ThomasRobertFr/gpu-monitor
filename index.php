@@ -63,7 +63,19 @@
   <body>
     <div class="container">
 
-<?php } ?>
+<?php
+}
+
+// CACHE 
+$CACHE_DURATION = 7; // seconds
+
+if (file_exists("content.html") && time() - $CACHE_DURATION < filemtime("content.html")) {
+    include("content.html");
+}
+else {
+    ob_start();
+
+?>
 
         <div class="page-header">
             <h1>GPU Status <small class="hidden-xs">(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
@@ -589,7 +601,13 @@ foreach ($STATS->data as $user => $usage) { ?>
         </form>
     </div>
 
-    <?php if (!isset($_GET["content"])) { ?>
+<?php 
+$cached = fopen("content.html", 'w');
+fwrite($cached, ob_get_contents());
+fclose($cached);
+ob_end_flush();
+}
+if (!isset($_GET["content"])) { ?>
 
     </div>
 
