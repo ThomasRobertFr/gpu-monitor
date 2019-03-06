@@ -42,6 +42,9 @@
     td .progress.progress-danger { background-color: #f3dedd; }
     .process .user { font-weight: bold; color: #fff; }
 
+    td .progress-disk .progress-bar { white-space: nowrap; color: #000; text-shadow: -0.3px -0.3px 1px #fff, 0.3px -0.3px 1px #fff, -0.3px 0.3px 1px #fff, 0.3px 0.3px 1px #fff; }
+    td .progress-disk { margin-top: 3px; }
+
     .comment-btn { float:right; background: #ccc; border: #999; margin-right: -25px; }
     .comment-form { font-size: 80%; padding-top: 5px; }
     .comment-form .input-group-addon { padding: 4px 6px;  }
@@ -200,6 +203,23 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     $gpus = array();
     $time = false;
 
+    // USAGE OF LOCAL DISK
+    $disk_usage = array();
+    foreach(file('data/'.$hostname.'_local.txt') as $local_usage) {
+        if (preg_match("#^([0-9,]+)([KMGT])\s*/local/(\w+)$#", $local_usage, $matches)) {
+            $multiplier = 1;
+            if ($matches[2] == "K") $multiplier = 0.001 * 0.001;
+            if ($matches[2] == "M") $multiplier = 0.001;
+            if ($matches[2] == "G") $multiplier = 1;
+            if ($matches[2] == "T") $multiplier = 1000;
+            $val = floatval(str_replace(",", ".", $matches[1])) * $multiplier;
+            if ($val > 10)
+                $disk_usage[$matches[3]] = $val;
+        }
+    }
+    arsort($disk_usage);
+
+    // LIST OF GPUS
     foreach(file('data/'.$hostname.'_gpus.csv') as $gpu) {
         $gpu = str_getcsv($gpu);
         if (count($gpu) != count($GPU_COLS_LIST))
@@ -369,8 +389,34 @@ foreach ($HOSTS as $hostname => $hosttitle) {
                         <?php echo $disk["usage"] ?>%
                     </div>
                 </div>
+
+                <?php if (!empty($disk_usage)) { ?>
+                <span class="disk-content hidden">
+                <?php
+                $volume_max = 0;
+                foreach ($disk_usage as $user => $volume) {
+                    if ($volume > $volume_max)
+                        $volume_max = $volume;
+                    $volume_percent = round($volume / $disk['total'] * 100);
+                    $volume_percent_disp = round($volume / ($volume_max * 5/4) * 100);
+                    ?>
+                    <div class="progress progress-disk">
+                        <div class="progress-bar progress-bar-info" role="progressbar"
+                        aria-valuenow="<?php echo $volume_percent_disp ?>"
+                        aria-valuemin="0" aria-valuemax="100"
+                        style="width: <?php echo $volume_percent_disp ?>%">
+                            <?php echo $volume_percent ?>% <?php echo round($volume) ?>Go - <?php echo $user ?>
+                        </div>
+                    </div>
+                <?php } ?>
+                </span>
+                <?php } ?>
             </td>
-            <td></td>
+            <td>
+                <?php if (!empty($disk_usage)) { ?>
+                <a type="button" role="button" class="btn btn-default btn-xs btn-disk"><i class="glyphicon glyphicon-triangle-bottom"></i></a>
+                <?php } ?>
+            </td>
         </tr>
     </table>
 
@@ -498,24 +544,21 @@ function get_color($value) {
     return "danger";
 }
 $i = 1;
-foreach ($STATS->data as $user => $usage) {
-    ?><tr>
-    <td><?php echo $i++; ?></td>
-    <td><?php echo $user; ?></td>
-    <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
-    <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
-    <?php foreach ($usage["emas"] as $val) { ?>
-    <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
-    <?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
-          elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
-          else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
-    </td>
-    <?php } ?>
+foreach ($STATS->data as $user => $usage) { ?>
+	<tr>
+	    <td><?php echo $i++; ?></td>
+	    <td><?php echo $user; ?></td>
+	    <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
+	    <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
+	    <?php foreach ($usage["emas"] as $val) { ?>
+	    <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
+	    	<?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
+	          elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
+	          else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
+	    </td>
+    	<?php } ?>
     </tr>
-    <?php
-}
-
-?>
+<?php } ?>
 </table>
 
     <div id="popover-content" style="display:none">
@@ -584,6 +627,10 @@ foreach ($STATS->data as $user => $usage) {
                 $(".form-host").attr("value", td.data("host"));
                 return $("#popover-content").html();
             }
+        });
+
+        $('.btn-disk').click(function () {
+            $(this).parent().parent().find(".disk-content").toggleClass("hidden");
         });
     }
 
