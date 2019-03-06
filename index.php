@@ -78,22 +78,90 @@ $CPU_COLS_LIST = array("average_use","total_nb_proc");
 
 class Stats {
     public $data = array();
-    function add($user, $type) {
+    public $ema_time;
+    public $ema_Ts;
+
+    function __construct() {
+        $this->ema_time = time();
+        $this->ema_Ts = array(2*60*60, 24*60*60, 7*24*60*60);
+    }
+
+    function rewrite_user($user) {
         $user = strtolower(substr($user, 0, 7));
         if ($user == "perrine") $user = "cribier";
         if ($user == "yifu") $user = "chenyi";
         if ($user == "clara") $user = "gainond";
+        if ($user == "tom") $user = "veniat";
         if ($user == "yin") $user = "yiny";
         if ($user == "valenti") $user = "guiguet";
-        if ($user == "???" || $user == "en pann") return;
+        if ($user == "???" || $user == "en pann") $user = "";
+        return $user;
+    }
+
+    function init_user($user) {
+        if (empty($user)) return;
+
         if (!isset($this->data[$user]))
-            $this->data[$user] = array("resa" => 0, "used" => 0);
+            $this->data[$user] = array("resa" => 0, "used" => 0, "emas" => array(0, 0, 0));
+    }
+
+    function add($user, $type) {
+        $user = $this->rewrite_user($user);
+        if (empty($user)) return;
+        if ($type != "used" && $type != "resa") return;
+
+        $this->init_user($user);
         $this->data[$user][$type] += 1;
+    }
+
+    function set_ema($user, $index, $val) {
+        $user = $this->rewrite_user($user);
+        if (empty($user)) return;
+
+        $this->init_user($user);
+        $this->data[$user]["emas"][$index] = $val;
+    }
+
+    function load_ema_data() {
+        $json_data = json_decode(file_get_contents("data/statsV2.json"), true);
+        $this->ema_time = $json_data["time"];
+
+        foreach ($json_data["data"] as $user => $datum) {
+            foreach ($datum["emas"] as $index => $value) {
+                $this->set_ema($user, $index, $value);
+            }
+        }
+    }
+
+    function ema_step() {
+        $deltaT = time() - $this->ema_time;
+        if ($deltaT > 30) {
+            foreach($this->ema_Ts as $index => $T) {
+                $alpha = 1 - exp(-$deltaT/$T);
+                foreach ($this->data as $user => $datum) {
+                    $this->data[$user]["emas"][$index] += $alpha * ($datum["used"] - $datum["emas"][$index]);
+                }
+            }
+
+            $this->ema_time = time();
+            $this->save_data();
+        }
+    }
+
+    function save_data() {
+        $json_data = array("time"=> $this->ema_time, "data" => $this->data);
+    }
+
+    function sort() {
+        uasort($this->data, function ($b, $a) {
+            return $a["resa"] + $a["used"]*1.5 + $a["emas"][0]*0.15 > $b["resa"] + $b["used"]*1.5 + $b["emas"][0]*0.15;
+        });
+
     }
 }
 
 $STATS = new Stats();
-
+$STATS->load_ema_data();
 
 if (is_file("data/comments.json"))
     $COMMENTS = json_decode(file_get_contents("data/comments.json"), true);
@@ -410,67 +478,36 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     }
 }
 
-
-// load previous data
-$STATS_EMA = json_decode(file_get_contents("data/stats.json"), true);
-$deltaT_ema = time() - $STATS_EMA["time"];
-$T_ema = 2*60*60;
-$T2_ema = 24*60*60;
-$T3_ema = 7*24*60*60;
-$alpha = 1 - exp(-$deltaT_ema/$T_ema);
-$alpha2 = 1 - exp(-$deltaT_ema/$T2_ema);
-$alpha3 = 1 - exp(-$deltaT_ema/$T3_ema);
-
-// update EMA if at least 30s since last update
-if ($deltaT_ema > 30) {
-    foreach ($STATS->data as $user => $usage) {
-        if (!isset($STATS_EMA["data"][$user]))
-            $STATS_EMA["data"][$user] = $usage["used"];
-        else
-            $STATS_EMA["data"][$user] += $alpha * ($usage["used"] - $STATS_EMA["data"][$user]);
-
-        if (!isset($STATS_EMA["data2"][$user]))
-            $STATS_EMA["data2"][$user] = $usage["used"];
-        else
-            $STATS_EMA["data2"][$user] += $alpha2 * ($usage["used"] - $STATS_EMA["data2"][$user]);
-
-        if (!isset($STATS_EMA["data3"][$user]))
-            $STATS_EMA["data3"][$user] = $usage["used"];
-        else
-            $STATS_EMA["data3"][$user] += $alpha3 * ($usage["used"] - $STATS_EMA["data3"][$user]);
-    }
-
-    $STATS_EMA["time"] = time();
-    file_put_contents("data/stats.json", json_encode($STATS_EMA));
-}
+$STATS->ema_step();
+$STATS->sort();
 
 ?>
 <h2>Current usage statistics <small>a.k.a. who to ask for GPUs</small></h2>
 <table class="table table-striped table-condensed" style="width: auto; margin: 0; text-align: center">
-    <tr><th>User</th><th>Reserved</th><th>Used</th>
+    <tr><th>#</th><th>User</th><th>Reserved</th><th>Used</th>
     <th><abbr title="Exponential Moving Average, period 2h">EMA 2h</abbr></th>
     <th><abbr title="Exponential Moving Average, period 24h">EMA 24h</abbr></th>
     <th><abbr title="Exponential Moving Average, period 1 week">EMA 1w</abbr></th>
     </tr>
 <?php
-function sort_order ($b, $a) {
-    return $a["resa"] + $a["used"]*1.5 - $b["resa"] - $b["used"]*1.5;
-}
-uasort($STATS->data, "sort_order");
+
 function get_color($value) {
+    if ($value <= 0.95) return "active";
     if ($value <= 2.01) return "success";
     if ($value <= 5.01) return "warning";
     return "danger";
 }
+$i = 1;
 foreach ($STATS->data as $user => $usage) {
     ?><tr>
+    <td><?php echo $i++; ?></td>
     <td><?php echo $user; ?></td>
     <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
     <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
-    <?php foreach (array("data", "data2", "data3") as $key) { ?>
-    <td class="text-right <?php echo get_color($STATS_EMA[$key][$user]); ?>"><?php echo sprintf("%.1f", $STATS_EMA[$key][$user]); ?>
-    <?php if ($STATS_EMA[$key][$user] > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
-          elseif ($STATS_EMA[$key][$user] < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
+    <?php foreach ($usage["emas"] as $val) { ?>
+    <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
+    <?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
+          elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
           else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
     </td>
     <?php } ?>
