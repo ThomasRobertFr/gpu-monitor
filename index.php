@@ -165,6 +165,7 @@ class Stats {
 
     function save_data() {
         $json_data = array("time"=> $this->ema_time, "data" => $this->data);
+        file_put_contents("data/statsV2.json", json_encode($json_data));
     }
 
     function sort() {
