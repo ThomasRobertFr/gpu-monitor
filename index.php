@@ -66,10 +66,11 @@
 <?php
 }
 
-// CACHE 
+// CACHE
 $CACHE_DURATION = 7; // seconds
+$CACHE_DISABLED = false;
 
-if (file_exists("content.html") && time() - $CACHE_DURATION < filemtime("content.html")) {
+if (file_exists("content.html") && time() - $CACHE_DURATION < filemtime("content.html") && !isset($_POST["host"]) && !$CACHE_DISABLED) {
     include("content.html");
 }
 else {
