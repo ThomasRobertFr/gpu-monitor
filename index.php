@@ -4,7 +4,10 @@
 $CACHE_DURATION = 7; // seconds
 $CACHE_DISABLED = false;
 
-if (file_exists("content.html") && time() - $CACHE_DURATION < filemtime("content.html") && !isset($_POST["host"]) && !$CACHE_DISABLED) {
+$TIME_CACHE = filemtime("content.html");
+$TIME_COMMENT = filemtime("data/comments.json");
+
+if (file_exists("content.html") && time() - $CACHE_DURATION < $TIME_CACHE && $TIME_CACHE > $TIME_COMMENT && !isset($_POST["host"]) && !$CACHE_DISABLED) {
     if (!isset($_GET["content"]))
         include("header.html");
     include("content.html");
@@ -146,6 +149,7 @@ if (isset($_POST["host"]) && isset($HOSTS[$_POST["host"]])) {
     $COMMENTS[$_POST["host"]][$index] = array("name" => $name, "date" => $date, "comment" => $comment);
 
     file_put_contents("data/comments.json", json_encode($COMMENTS));
+    touch("content.html", time() - 100, time() - 100);
     header("Location: http://".$_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']."#".$_POST["host"]);
     exit();
 }
