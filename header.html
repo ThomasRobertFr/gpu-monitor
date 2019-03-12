@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>GPU Status</title>
+
+    <!--<meta http-equiv="refresh" content="30">-->
+
+    <script defer src="https://pro.fontawesome.com/releases/v5.7.2/js/all.js" integrity="sha384-I3Hhe9TkmlsxzooTtbRzdeLbmkFQE9DVzX/19uTZfHk1zn/uWUyk+a+GyrHyseSq" crossorigin="anonymous"></script>
+
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <style type="text/css">
+    body {padding-bottom: 200px; }
+    .process.label { font-size: 80%; font-weight: normal; color: #e3e9ee; }
+
+    .th-machine { width: 198px; }
+    .th-machine h2 { margin: -8px 15px 0 0; display: inline; }
+    .th-machine h2 a, .th-machine h2 a:hover { color: #333; text-decoration: none; }
+    .th-machine small { font-size: 90%; color: #777; font-weight: 400; }
+    .title-table th { border-top-width: 3px !important; }
+    .title-table { margin-top: 40px; }
+
+    .th-id { width: 18px; }
+    .th-name { width: 180px; }
+    .th-mem { width: 130px; }
+    .th-usage { width: 130px; }
+    .th-comment { width: 160px; }
+    .td-comment { white-space: nowrap; padding-right:30px!important;}
+
+    td .progress { margin: 0; }
+    td .progress.progress-success { background-color: #deedde; }
+    td .progress.progress-warning { background-color: #f8eed3; }
+    td .progress.progress-danger { background-color: #f3dedd; }
+    .process .user { font-weight: bold; color: #fff; }
+
+    td .progress-disk .progress-bar { white-space: nowrap; color: #000; text-shadow: -0.3px -0.3px 1px #fff, 0.3px -0.3px 1px #fff, -0.3px 0.3px 1px #fff, 0.3px 0.3px 1px #fff; }
+    td .progress-disk { margin-top: 3px; }
+
+    .comment-btn { float:right; background: #ccc; border: #999; margin-right: -25px; }
+    .comment-form { font-size: 80%; padding-top: 5px; }
+    .comment-form .input-group-addon { padding: 4px 6px;  }
+    .comment-form .form-control { padding: 5px; height: 27px; }
+    .comment-form .form-group { margin-bottom: 9px; }
+
+    .label-comment.label-danger { background-color: #2f4c79; }
+
+    h1 small, h2 small { font-size: 50%; }
+    h2 small .label-danger { font-size: 80%; }
+
+    .btn-process { font-size: 10px; padding: 1px 3px 0px; vertical-align: top; }
+    .popover-content { padding: 1px 5px 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">

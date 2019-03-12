@@ -1,88 +1,16 @@
-<?php if (!isset($_GET["content"])) { ?>
-
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <title>GPU Status</title>
-
-    <!--<meta http-equiv="refresh" content="30">-->
-
-    <script defer src="https://pro.fontawesome.com/releases/v5.7.2/js/all.js" integrity="sha384-I3Hhe9TkmlsxzooTtbRzdeLbmkFQE9DVzX/19uTZfHk1zn/uWUyk+a+GyrHyseSq" crossorigin="anonymous"></script>
-
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <!--[if lt IE 9]>
-      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
-      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
-    <![endif]-->
-    <style type="text/css">
-    body {padding-bottom: 200px; }
-    .process.label { font-size: 80%; font-weight: normal; color: #e3e9ee; }
-
-    .th-machine { width: 198px; }
-    .th-machine h2 { margin: -8px 15px 0 0; display: inline; }
-    .th-machine h2 a, .th-machine h2 a:hover { color: #333; text-decoration: none; }
-    .th-machine small { font-size: 90%; color: #777; font-weight: 400; }
-    .title-table th { border-top-width: 3px !important; }
-    .title-table { margin-top: 40px; }
-
-    .th-id { width: 18px; }
-    .th-name { width: 180px; }
-    .th-mem { width: 130px; }
-    .th-usage { width: 130px; }
-    .th-comment { width: 160px; }
-    .td-comment { white-space: nowrap; padding-right:30px!important;}
-
-    td .progress { margin: 0; }
-    td .progress.progress-success { background-color: #deedde; }
-    td .progress.progress-warning { background-color: #f8eed3; }
-    td .progress.progress-danger { background-color: #f3dedd; }
-    .process .user { font-weight: bold; color: #fff; }
-
-    td .progress-disk .progress-bar { white-space: nowrap; color: #000; text-shadow: -0.3px -0.3px 1px #fff, 0.3px -0.3px 1px #fff, -0.3px 0.3px 1px #fff, 0.3px 0.3px 1px #fff; }
-    td .progress-disk { margin-top: 3px; }
-
-    .comment-btn { float:right; background: #ccc; border: #999; margin-right: -25px; }
-    .comment-form { font-size: 80%; padding-top: 5px; }
-    .comment-form .input-group-addon { padding: 4px 6px;  }
-    .comment-form .form-control { padding: 5px; height: 27px; }
-    .comment-form .form-group { margin-bottom: 9px; }
-
-    .label-comment.label-danger { background-color: #2f4c79; }
-
-    h1 small, h2 small { font-size: 50%; }
-    h2 small .label-danger { font-size: 80%; }
-
-    .btn-process { font-size: 10px; padding: 1px 3px 0px; vertical-align: top; }
-    .popover-content { padding: 1px 5px 4px; }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-
 <?php
-}
 
 // CACHE
 $CACHE_DURATION = 7; // seconds
 $CACHE_DISABLED = false;
 
 if (file_exists("content.html") && time() - $CACHE_DURATION < filemtime("content.html") && !isset($_POST["host"]) && !$CACHE_DISABLED) {
+    if (!isset($_GET["content"]))
+        include("header.html");
     include("content.html");
 }
 else {
     ob_start();
-
-?>
-
-        <div class="page-header">
-            <h1>GPU Status <small class="hidden-xs">(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
-        </div>
-
-<?php
 
 $HOSTS = array("fb" => "Facebook",  "pascal" => "Pascal", "chic" => "Chic", "nile" => "Nile", "rodgers" => "Rodgers", "bernard" => "Bernard", "edwards" => "Edwards", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "sledge" => "Sledge", "sister" => "Sister");
 $SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100", "GeForce RTX 2080 Ti" => "2080 Ti");
@@ -104,12 +32,20 @@ class Stats {
 
     function rewrite_user($user) {
         $user = strtolower(substr($user, 0, 7));
-        if ($user == "perrine") $user = "cribier";
-        if ($user == "yifu") $user = "chenyi";
+        if (preg_match("/pe?r+i+n+e?/", $user) || $user == "relou") $user = "cribier";
+        if ($user == "antoine" || $user == "taylor" || $user == "saporta" || $user == "mordan") $user = "saporta-mordan";
+        if ($user == "yifu" || $user == "yif") $user = "chenyi";
         if ($user == "clara") $user = "gainond";
         if ($user == "tom") $user = "veniat";
         if ($user == "yin") $user = "yiny";
         if ($user == "valenti") $user = "guiguet";
+        if ($user == "remi") $user = "cadene";
+        if ($user == "taylor") $user = "mordan";
+        if ($user == "antoine") $user = "saporta";
+        if ($user == "etienne") $user = "esimon";
+        if ($user == "agnes") $user = "mustar";
+        if ($user == "daniel") $user = "brooks";
+        if ($user == "eloi") $user = "zablock";
         if ($user == "???" || $user == "en pann") $user = "";
         return $user;
     }
@@ -135,12 +71,12 @@ class Stats {
         if (empty($user)) return;
 
         $this->init_user($user);
-        $this->data[$user]["emas"][$index] = $val;
+        $this->data[$user]["emas"][$index] = max($val, $this->data[$user]["emas"][$index]); // useful when merging
     }
 
     function load_ema_data() {
         $json_data = json_decode(file_get_contents("data/statsV2.json"), true);
-        $this->ema_time = $json_data["time"];
+        $this->ema_time = (isset($json_data["time"])) ? $json_data["time"] : time() - 60;
 
         foreach ($json_data["data"] as $user => $datum) {
             foreach ($datum["emas"] as $index => $value) {
@@ -210,7 +146,23 @@ if (isset($_POST["host"]) && isset($HOSTS[$_POST["host"]])) {
     $COMMENTS[$_POST["host"]][$index] = array("name" => $name, "date" => $date, "comment" => $comment);
 
     file_put_contents("data/comments.json", json_encode($COMMENTS));
+    header("Location: http://".$_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']."#".$_POST["host"]);
+    exit();
 }
+
+
+
+/////// PAGE START
+
+
+if (!isset($_GET["content"]))
+    include("header.html");
+?>
+<div class="page-header">
+    <h1>GPU Status <small class="hidden-xs">(Refreshed every 30 seconds)</small><a href="https://github.com/ThomasRobertFr/gpu-monitor" style="float:right"><img src="css/gh.png" height="20px"></a></h1>
+</div>
+<?php
+
 
 foreach ($HOSTS as $hostname => $hosttitle) {
 
@@ -559,18 +511,18 @@ function get_color($value) {
 }
 $i = 1;
 foreach ($STATS->data as $user => $usage) { ?>
-	<tr>
-	    <td><?php echo $i++; ?></td>
-	    <td><?php echo $user; ?></td>
-	    <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
-	    <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
-	    <?php foreach ($usage["emas"] as $val) { ?>
-	    <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
-	    	<?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
-	          elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
-	          else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
-	    </td>
-    	<?php } ?>
+    <tr>
+        <td><?php echo $i++; ?></td>
+        <td><?php echo $user; ?></td>
+        <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
+        <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
+        <?php foreach ($usage["emas"] as $val) { ?>
+        <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
+            <?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
+              elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
+              else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
+        </td>
+        <?php } ?>
     </tr>
 <?php } ?>
 </table>
