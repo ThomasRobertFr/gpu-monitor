@@ -454,12 +454,24 @@ foreach ($HOSTS as $hostname => $hosttitle) {
             if (!empty($comment["name"])) {
                 $STATS->add($comment["name"], "resa");
             }
+
+            // color
+            echo "<!-- ".$diff->days.'-->';
+            if ($diff->days > 2)
+                $color = "danger";
+            elseif ($diff->days > 1)
+                $color = "primary";
+            elseif ($date > $now)
+                $color = "info";
+            else
+                $color = "default";
+
             ?>
 
             <td class="td-comment" data-name="<?php echo $comment["name"] ?>" data-comment="<?php echo $comment["comment"] ?>" data-date="<?php echo $comment["date"] ?>" data-host="<?php echo $hostname ?>" data-id="<?php echo $gpu['index'] ?>">
                 <button class="btn btn-default btn-xs comment-btn"><i class="fas fa-pencil"></i></button>
                 <?php if ($comment["date"] && $comment["name"]) { ?>
-                    <span class="label label-comment label-<?php echo ($date > $now) ? "danger" : "default"; ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $comment["comment"]; ?>"><?php echo $comment["name"].' ('.$diff_disp.($date > $now ? "" : " ago").')'; if ($comment["comment"]) echo '&nbsp;&nbsp;<i class="fas fa-comment"></i>'; ?></span>
+                    <span class="label label-comment label-<?php echo $color; ?>" data-toggle="tooltip" data-placement="top" title="<?php echo $comment["comment"]; ?>"><?php echo $comment["name"].' ('.$diff_disp.($date > $now ? "" : " ago").')'; if ($comment["comment"]) echo '&nbsp;&nbsp;<i class="fas fa-comment"></i>'; ?></span>
                 <?php } ?>
             </td>
             <td>
