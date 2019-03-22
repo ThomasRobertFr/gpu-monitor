@@ -60,13 +60,13 @@ class Stats {
             $this->data[$user] = array("resa" => 0, "used" => 0, "emas" => array(0, 0, 0));
     }
 
-    function add($user, $type) {
+    function add($user, $type, $weight = 1) {
         $user = $this->rewrite_user($user);
         if (empty($user)) return;
         if ($type != "used" && $type != "resa") return;
 
         $this->init_user($user);
-        $this->data[$user][$type] += 1;
+        $this->data[$user][$type] += $weight;
     }
 
     function set_ema($user, $index, $val) {
@@ -498,11 +498,11 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     foreach ($gpus as $gpu) {
         // list users on the GPU, count them once, add them to the stats counter
         $users = array();
+        $total_ram = 0;
         foreach ($gpu["processes"] as $process)
-            $users[] = $process["user"];
-        $users = array_unique($users);
-        foreach($users as $user)
-            $STATS->add($user, "used");
+            $total_ram += $process["usage"];
+        foreach ($gpu["processes"] as $process)
+            $STATS->add($process["user"], "used", $process["usage"] / $total_ram);
     }
 }
 
@@ -531,7 +531,7 @@ foreach ($STATS->data as $user => $usage) { ?>
         <td><?php echo $i++; ?></td>
         <td><?php echo $user; ?></td>
         <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
-        <td class="<?php echo get_color($usage["used"]); ?>"><?php echo $usage["used"]; ?></td>
+        <td class="<?php echo get_color($usage["used"]); ?>"><?php echo sprintf("%.1f", $usage["used"]); ?></td>
         <?php foreach ($usage["emas"] as $val) { ?>
         <td class="text-right <?php echo get_color($val); ?>"><?php echo sprintf("%.1f", $val); ?>
             <?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
