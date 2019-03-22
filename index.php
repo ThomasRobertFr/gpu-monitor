@@ -34,7 +34,7 @@ class Stats {
     }
 
     function rewrite_user($user) {
-        $user = strtolower(substr($user, 0, 7));
+        $user = strtolower(substr(trim($user), 0, 7));
         if (preg_match("/pe?r+i+n+e?/", $user) || $user == "relou") $user = "cribier";
         if ($user == "antoine" || $user == "taylor" || $user == "saporta" || $user == "mordan") $user = "saporta-mordan";
         if ($user == "yifu" || $user == "yif") $user = "chenyi";
@@ -42,14 +42,14 @@ class Stats {
         if ($user == "tom") $user = "veniat";
         if ($user == "yin") $user = "yiny";
         if ($user == "valenti") $user = "guiguet";
-        if ($user == "remi") $user = "cadene";
+        if ($user == "remi" || $user == "caddene") $user = "cadene";
         if ($user == "taylor") $user = "mordan";
         if ($user == "antoine") $user = "saporta";
         if ($user == "etienne") $user = "esimon";
         if ($user == "agnes") $user = "mustar";
         if ($user == "daniel") $user = "brooks";
         if ($user == "eloi") $user = "zablock";
-        if ($user == "???" || $user == "en pann") $user = "";
+        if ($user == "???" || $user == "en pann" || $user == "broken") $user = "";
         return $user;
     }
 
