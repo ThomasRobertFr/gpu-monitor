@@ -16,8 +16,8 @@ else {
     ob_start();
 
 $HOSTS = array("fb" => "Facebook",  "pascal" => "Pascal", "chic" => "Chic", "nile" => "Nile", "rodgers" => "Rodgers", "bernard" => "Bernard", "edwards" => "Edwards", "pas" => "Pas", "cal" => "Cal", "titan" => "Titan", "bigcountry" => "Big Country", "sledge" => "Sledge", "sister" => "Sister");
-$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100", "GeForce RTX 2080 Ti" => "2080 Ti");
-$SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100");
+$SHORT_GPU_NAMES = array("GeForce GTX TITAN X" => "Titan X Maxwell", "TITAN X (Pascal)" => "Titan X Pascal", "TITAN Xp" => "Titan Xp", "GeForce GTX 980" => "GTX 980", "Tesla P100-PCIE-16GB" => "Tesla P100", "GeForce RTX 2080 Ti" => "RTX 2080 Ti");
+$SHORTER_GPU_NAMES = array("GeForce GTX TITAN X" => "X Max", "TITAN X (Pascal)" => "X Pas", "TITAN Xp" => "Xp", "GeForce GTX 980" => "GTX 980", "Tesla K20m" => "K20m", "Tesla M2090" => "M2090", "Tesla P100-PCIE-16GB" => "P100", "GeForce RTX 2080 Ti" => "2080 Ti");
 $GPU_COLS_LIST = array("index", "uuid",   "name", "memory.used", "memory.total", "utilization.gpu", "utilization.memory", "temperature.gpu", "timestamp");
 $GPU_PROC_LIST = array("timestamp", "gpu_uuid", "used_gpu_memory", "process_name", "pid");
 $CPU_COLS_LIST = array("average_use","total_nb_proc");
@@ -27,29 +27,30 @@ class Stats {
     public $data = array();
     public $ema_time;
     public $ema_Ts;
+    public $mappings;
 
     function __construct() {
         $this->ema_time = time();
         $this->ema_Ts = array(2*60*60, 24*60*60, 7*24*60*60);
+
+        $this->mappings = array();
+        $rules = file_get_contents("data/aliases.csv");
+        $rules = explode("\n", $rules);
+        foreach ($rules as $rule) {
+            $rule = explode("#", $rule); $rule = $rule[0]; // remove comments after #
+            $rule = explode(",", $rule); // split at each comma
+            $target = strtolower(trim(end($rule))); // select last as target
+            foreach ($rule as $el) {
+                $el = strtolower(trim($el));
+                if (empty($el)) continue;
+                $this->mappings[$el] = $target;
+            }
+        }
     }
 
     function rewrite_user($user) {
-        $user = strtolower(substr(trim($user), 0, 7));
-        if (preg_match("/pe?r+i+n+e?/", $user) || $user == "relou") $user = "cribier";
-        if ($user == "antoine" || $user == "taylor" || $user == "saporta" || $user == "mordan") $user = "saporta-mordan";
-        if ($user == "yifu" || $user == "yif") $user = "chenyi";
-        if ($user == "clara") $user = "gainond";
-        if ($user == "tom") $user = "veniat";
-        if ($user == "yin") $user = "yiny";
-        if ($user == "valenti") $user = "guiguet";
-        if ($user == "remi" || $user == "caddene") $user = "cadene";
-        if ($user == "taylor") $user = "mordan";
-        if ($user == "antoine") $user = "saporta";
-        if ($user == "etienne") $user = "esimon";
-        if ($user == "agnes") $user = "mustar";
-        if ($user == "daniel") $user = "brooks";
-        if ($user == "eloi") $user = "zablock";
-        if ($user == "???" || $user == "en pann" || $user == "broken") $user = "";
+        $user = str_replace("+", "", strtolower(trim($user)));
+        if (isset($this->mappings[$user])) return $this->mappings[$user];
         return $user;
     }
 
@@ -57,7 +58,7 @@ class Stats {
         if (empty($user)) return;
 
         if (!isset($this->data[$user]))
-            $this->data[$user] = array("resa" => 0, "used" => 0, "emas" => array(0, 0, 0));
+            $this->data[$user] = array("user" => $user, "resa" => 0, "used" => 0, "emas" => array(0, 0, 0));
     }
 
     function add($user, $type, $weight = 1) {
@@ -78,8 +79,20 @@ class Stats {
     }
 
     function load_ema_data() {
-        $json_data = json_decode(file_get_contents("data/statsV2.json"), true);
+        $raw_data = file_get_contents("data/statsV2.json");
+        $json_data = json_decode($raw_data, true);
         $this->ema_time = (isset($json_data["time"])) ? $json_data["time"] : time() - 60;
+
+        if ($json_data == NULL) {
+            $raw_data = file_get_contents("data/statsV2_bkp.json");
+            $json_data = json_decode($raw_data, true);
+            file_put_contents("data/stats.json", date("c")."\nRestored bkp\n\n", FILE_APPEND);
+            if ($json_data == NULL) {
+                $raw_data = file_get_contents("data/statsV2_bkp2.json");
+                $json_data = json_decode($raw_data, true);
+                file_put_contents("data/stats.json", date("c")."\nRestored bkp 2\n\n", FILE_APPEND);
+            }
+        }
 
         foreach ($json_data["data"] as $user => $datum) {
             foreach ($datum["emas"] as $index => $value) {
@@ -104,15 +117,26 @@ class Stats {
     }
 
     function save_data() {
-        $json_data = array("time"=> $this->ema_time, "data" => $this->data);
-        file_put_contents("data/statsV2.json", json_encode($json_data));
+        $i = 0;
+        do {
+            $json_data = array("time"=> $this->ema_time, "data" => $this->data);
+            // Add spaces at the end because it seems like some "}" remains at the end of the file sometimes, reason unknown
+            // but probably multiple writes at the same time
+            file_put_contents("data/statsV2.json", json_encode($json_data)."                       ", LOCK_EX);
+            usleep(rand(50, 350) * 1000); // wait 50-200ms in case there is something happening, probably conflic with another parallel writer
+            if ($i > 0)
+                file_put_contents("data/stats.json", date("c")." - Problem saving stats time ".$i." \n\n", FILE_APPEND);
+            $i++;
+        }
+        while ($i < 10 && json_decode(file_get_contents("data/statsV2.json"), true) == NULL);
     }
 
     function sort() {
         uasort($this->data, function ($b, $a) {
+            if ($a["user"] == "free") return 1;
+            if ($b["user"] == "free") return -1;
             return $a["resa"] + $a["used"]*1.5 + $a["emas"][0]*0.15 > $b["resa"] + $b["used"]*1.5 + $b["emas"][0]*0.15;
         });
-
     }
 }
 
@@ -243,7 +267,7 @@ foreach ($HOSTS as $hostname => $hosttitle) {
 
         // 5sec before last info (probably previous loop) or 1min old => exclude
         $process_time = strtotime($process["timestamp"]);
-        if ($last_process_time - $process_time > 5 || time() - $process_time > 60)
+        if ($last_process_time - $process_time > 5 || time() - $process_time > 90)
             continue;
 
         // get more process info from `ps` data
@@ -451,12 +475,12 @@ foreach ($HOSTS as $hostname => $hosttitle) {
             }
             catch (Exception $e) { $comment = array("date" => "", "name" => ""); }
 
-            if (!empty($comment["name"])) {
+            if (!empty($comment["name"]))
                 $STATS->add($comment["name"], "resa");
-            }
+            else
+                $STATS->add("free", "resa");
 
             // color
-            echo "<!-- ".$diff->days.'-->';
             if ($diff->days > 2)
                 $color = "danger";
             elseif ($diff->days > 1)
@@ -495,14 +519,15 @@ foreach ($HOSTS as $hostname => $hosttitle) {
     </table>
     <?php
 
+
     foreach ($gpus as $gpu) {
-        // list users on the GPU, count them once, add them to the stats counter
-        $users = array();
         $total_ram = 0;
         foreach ($gpu["processes"] as $process)
             $total_ram += $process["usage"];
         foreach ($gpu["processes"] as $process)
             $STATS->add($process["user"], "used", $process["usage"] / $total_ram);
+        if ($total_ram == 0 && $gpu["utilization.gpu"] < 1)
+            $STATS->add("free", "used", 1);
     }
 }
 
@@ -526,8 +551,23 @@ function get_color($value) {
     return "danger";
 }
 $i = 1;
-foreach ($STATS->data as $user => $usage) { ?>
-    <tr>
+foreach ($STATS->data as $user => $usage) {
+    if ($user == "free") { ?>
+        <tr style="font-style: italic; opacity: 0.65">
+        <td></td>
+        <td>Free GPUs</td>
+        <td><?php echo $usage["resa"]; ?></td>
+        <td><?php echo sprintf("%d", $usage["used"]); ?></td>
+        <?php foreach ($usage["emas"] as $val) { ?>
+        <td class="text-right"><?php echo sprintf("%.1f", $val); ?>
+            <?php if ($val > $usage["used"] + 0.1) { ?>&nbsp;<i class="far fa-angle-down text-success"></i><?php }
+              elseif ($val < $usage["used"] - 0.1) { ?>&nbsp;<i class="far fa-angle-up text-danger"></i><?php }
+              else { ?>&nbsp;<i class="fal fa-equals" style="opacity: 0.2"></i><?php } ?>
+        </td>
+        <?php } ?>
+    </tr>
+    <?php } else { ?>
+        <tr>
         <td><?php echo $i++; ?></td>
         <td><?php echo $user; ?></td>
         <td class="<?php echo get_color($usage["resa"]); ?>"><?php echo $usage["resa"]; ?></td>
@@ -540,6 +580,7 @@ foreach ($STATS->data as $user => $usage) { ?>
         </td>
         <?php } ?>
     </tr>
+    <?php } ?>
 <?php } ?>
 </table>
 
